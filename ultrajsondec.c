@@ -56,21 +56,6 @@ JSOBJ FASTCALL_MSVC decode_any( struct DecoderState *ds) FASTCALL_ATTR;
 typedef JSOBJ (*PFN_DECODER)( struct DecoderState *ds);
 PFN_DECODER g_identTable[256] = { NULL }; 
 
-/*
-FIXME: Maybe move this to inside of createDouble function. Might increase memory locality and worst case 
-possibly polute the global namespace less */
-
-
-/*
-#define RETURN_JSOBJ_NULLCHECK(_expr)\
-{ \
-	JSOBJ obj__ = (_expr); \
-	if (obj__ == NULL) \
-		fprintf (stderr, "Function at %s:%d returned NULL", __FUNCTION__, __LINE__); \
-	return obj__; \
-} \
-*/
-
 #define RETURN_JSOBJ_NULLCHECK(_expr) return(_expr);
 
 double createDouble(double intNeg, double intValue, double frcValue, int frcDecimalCount)
@@ -90,7 +75,7 @@ static JSOBJ SetError( struct DecoderState *ds, int offset, const char *message)
 
 FASTCALL_ATTR JSOBJ FASTCALL_MSVC decode_numeric ( struct DecoderState *ds)
 {
-#ifdef JSON_NUMERIC_PRECISION_JAVASCRIPT
+#ifdef JSON_DECODE_NUMERIC_AS_DOUBLE
 	double intNeg = 1;
 	double intValue;
 #else
@@ -131,10 +116,10 @@ FASTCALL_ATTR JSOBJ FASTCALL_MSVC decode_numeric ( struct DecoderState *ds)
 		case '9':
 			//FIXME: Check for arithemtic overflow here
 			//PERF: Don't do 64-bit arithmetic here unless we know we have to
-#ifdef JSON_NUMERIC_PRECISION_JAVASCRIPT
+#ifdef JSON_DECODE_NUMERIC_AS_DOUBLE
 			intValue = intValue * 10.0 + (double) (chr - 48);
 #else
-			intValue = intValue * 10 + (JSLONG) (chr - 48);
+			intValue = intValue * 10LL + (JSLONG) (chr - 48);
 #endif
 			ds->start ++;
 			break;
@@ -162,7 +147,7 @@ BREAK_INT_LOOP:
 
 	//If input string is LONGLONG_MIN here the value is already negative so we should not flip it
 
-#ifdef JSON_NUMERIC_PRECISION_JAVASCRIPT
+#ifdef JSON_DECODE_NUMERIC_AS_DOUBLE
 #else
 	if (intValue < 0)
 	{
@@ -173,11 +158,13 @@ BREAK_INT_LOOP:
 	//dbg1 = (intValue * intNeg);
 	//dbg2 = (JSLONG) dbg1;
 
-	//FIXME: Check value size here, don't decode everything as 64-bit
-
-	if (intValue > (INT_MAX - 1))
-	{
-		RETURN_JSOBJ_NULLCHECK(ds->dec->newLong( (JSINT64) (intValue * intNeg)));
+#ifdef JSON_DECODE_NUMERIC_AS_DOUBLE
+	if (intValue > (double) INT_MAX || intValue < (double) INT_MIN)
+#else
+	if ( (intValue >> 32))
+#endif
+	{	
+		RETURN_JSOBJ_NULLCHECK(ds->dec->newLong( (JSINT64) (intValue * (JSINT64) intNeg)));
 	}
 	else
 	{
@@ -281,7 +268,7 @@ DECODE_EXPONENT:
 
 BREAK_EXP_LOOP:
 
-#ifdef JSON_NUMERIC_PRECISION_JAVASCRIPT
+#ifdef JSON_DECODE_NUMERIC_AS_DOUBLE
 #else
 	if (intValue < 0)
 	{

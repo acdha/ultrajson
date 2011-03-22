@@ -114,6 +114,7 @@ Encoding in details:
 
 #include <stdio.h>
 
+#define JSON_DECODE_NUMERIC_AS_DOUBLE
 
 // Don't decode any extra whitespaces
 #define JSON_NO_EXTRA_WHITESPACE
@@ -126,8 +127,6 @@ Encoding in details:
 #define JSON_MAX_RECURSION_DEPTH 256
 #endif
 
-// Use the same numeric precision as JavaScript implementations does
-#define JSON_NUMERIC_PRECISION_JAVASCRIPT
 
 /*
 Dictates and limits how much stack space for buffers UltraJSON will use before resorting to provided heap functions */
@@ -146,7 +145,7 @@ typedef uint32_t JSUINT32;
 typedef unsigned __int8 JSUINT8;
 typedef unsigned __int16 JSUTF16;
 typedef unsigned __int32 JSUTF32;
-
+typedef __int64 JSLONG;
 
 #define EXPORTFUNCTION __declspec(dllexport)
 
@@ -157,6 +156,7 @@ typedef unsigned __int32 JSUTF32;
 #ifndef __LITTLE_ENDIAN__
 #define __LITTLE_ENDIAN__
 #endif
+
 
 #else
 
@@ -175,11 +175,12 @@ typedef u_int32_t uint32_t;
 
 typedef u_int8_t JSUINT8;
 typedef u_int16_t JSUTF16;
-typedef u_int16_t JSUTF32;
+typedef u_int32_t JSUTF32;
+
+typedef int64_t JSLONG;
 
 #define EXPORTFUNCTION
 #endif
-
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define __LITTLE_ENDIAN__
@@ -229,6 +230,7 @@ typedef struct __JSONObjectEncoder
 	Return type of object as JSTYPES enum 
 	Implementors should setup necessary pointers or state in ti->prv
 	*/
+
 	void (*beginTypeContext)(JSOBJ obj, JSONTypeContext *tc);
 	void (*endTypeContext)(JSOBJ obj, JSONTypeContext *tc);
 	
@@ -351,11 +353,11 @@ typedef struct __JSONObjectDecoder
 	JSOBJ (*newString)(char *start, char *end);
 	void (*objectAddKey)(JSOBJ obj, JSOBJ name, JSOBJ value);
 	void (*arrayAddItem)(JSOBJ obj, JSOBJ value);
-	JSOBJ (*newTrue)();
-	JSOBJ (*newFalse)();
-	JSOBJ (*newNull)();
-	JSOBJ (*newObject)();
-	JSOBJ (*newArray)();
+	JSOBJ (*newTrue)(void);
+	JSOBJ (*newFalse)(void);
+	JSOBJ (*newNull)(void);
+	JSOBJ (*newObject)(void);
+	JSOBJ (*newArray)(void);
 	JSOBJ (*newInt)(JSINT32 value);
 	JSOBJ (*newLong)(JSINT64 value);
 	JSOBJ (*newDouble)(double value);
